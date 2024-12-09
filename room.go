@@ -471,14 +471,14 @@ func (r *Room) addRemoteParticipant(pi *livekit.ParticipantInfo, updateExisting 
 	rp, ok := r.remoteParticipants[livekit.ParticipantIdentity(pi.Identity)]
 	if ok {
 		if updateExisting {
-			rp.updateInfo(pi)
+			rp.updateInfo(r, pi)
 			r.sidToIdentity[livekit.ParticipantID(pi.Sid)] = livekit.ParticipantIdentity(pi.Identity)
 		}
 
 		return rp
 	}
 
-	rp = newRemoteParticipant(pi, r.callback, r.engine.client, func(ssrc webrtc.SSRC) {
+	rp = newRemoteParticipant(r, pi, r.callback, r.engine.client, func(ssrc webrtc.SSRC) {
 		pli := []rtcp.Packet{
 			&rtcp.PictureLossIndication{SenderSSRC: uint32(ssrc), MediaSSRC: uint32(ssrc)},
 		}
@@ -607,7 +607,7 @@ func (r *Room) handleParticipantUpdate(participants []*livekit.ParticipantInfo) 
 			go r.callback.OnParticipantConnected(r, rp)
 		} else {
 			oldSid := livekit.ParticipantID(rp.SID())
-			rp.updateInfo(pi)
+			rp.updateInfo(r, pi)
 			newSid := livekit.ParticipantID(rp.SID())
 			if oldSid != newSid {
 				r.log.Infow("participant sid update", "sid-old", oldSid, "sid-new", newSid, "identity", rp.Identity())

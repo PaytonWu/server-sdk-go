@@ -29,17 +29,17 @@ type RemoteParticipant struct {
 	client    *SignalClient
 }
 
-func newRemoteParticipant(pi *livekit.ParticipantInfo, roomCallback *RoomCallback, client *SignalClient, pliWriter PLIWriter) *RemoteParticipant {
+func newRemoteParticipant(room *Room, pi *livekit.ParticipantInfo, roomCallback *RoomCallback, client *SignalClient, pliWriter PLIWriter) *RemoteParticipant {
 	p := &RemoteParticipant{
 		baseParticipant: *newBaseParticipant(roomCallback),
 		client:          client,
 		pliWriter:       pliWriter,
 	}
-	p.updateInfo(pi)
+	p.updateInfo(room, pi)
 	return p
 }
 
-func (p *RemoteParticipant) updateInfo(pi *livekit.ParticipantInfo) {
+func (p *RemoteParticipant) updateInfo(room *Room, pi *livekit.ParticipantInfo) {
 	if !p.baseParticipant.updateInfo(pi, p) {
 		// not a valid update, could be due to older version
 		return
@@ -77,8 +77,8 @@ func (p *RemoteParticipant) updateInfo(pi *livekit.ParticipantInfo) {
 
 	// send events for new publications
 	for _, pub := range newPubs {
-		p.Callback.OnTrackPublished(pub.(*RemoteTrackPublication), p)
-		p.roomCallback.OnTrackPublished(pub.(*RemoteTrackPublication), p)
+		p.Callback.OnTrackPublished(room, pub.(*RemoteTrackPublication), p)
+		p.roomCallback.OnTrackPublished(room, pub.(*RemoteTrackPublication), p)
 	}
 
 	var toUnpublish []string
