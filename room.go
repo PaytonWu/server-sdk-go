@@ -159,7 +159,7 @@ type Room struct {
 
 	remoteParticipants map[livekit.ParticipantIdentity]*RemoteParticipant
 	sidToIdentity      map[livekit.ParticipantID]livekit.ParticipantIdentity
-	sidDefers          map[livekit.ParticipantID]map[livekit.TrackID]func(p *RemoteParticipant)
+	sidDefers          map[livekit.ParticipantID]map[livekit.TrackID]func(room *Room, p *RemoteParticipant)
 	metadata           string
 	activeSpeakers     []Participant
 	serverInfo         *livekit.ServerInfo
@@ -176,7 +176,7 @@ func NewRoom(callback *RoomCallback) *Room {
 		engine:             engine,
 		remoteParticipants: make(map[livekit.ParticipantIdentity]*RemoteParticipant),
 		sidToIdentity:      make(map[livekit.ParticipantID]livekit.ParticipantIdentity),
-		sidDefers:          make(map[livekit.ParticipantID]map[livekit.TrackID]func(*RemoteParticipant)),
+		sidDefers:          make(map[livekit.ParticipantID]map[livekit.TrackID]func(*Room, *RemoteParticipant)),
 		callback:           NewRoomCallback(),
 		sidReady:           make(chan struct{}),
 		connectionState:    ConnectionStateDisconnected,
@@ -373,12 +373,12 @@ func (r *Room) setConnectionState(cs ConnectionState) {
 	r.lock.Unlock()
 }
 
-func (r *Room) deferParticipantUpdate(sid livekit.ParticipantID, trackID livekit.TrackID, fnc func(p *RemoteParticipant)) {
+func (r *Room) deferParticipantUpdate(sid livekit.ParticipantID, trackID livekit.TrackID, fnc func(room *Room, p *RemoteParticipant)) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
 	if r.sidDefers[sid] == nil {
-		r.sidDefers[sid] = make(map[livekit.TrackID]func(p *RemoteParticipant))
+		r.sidDefers[sid] = make(map[livekit.TrackID]func(room *Room, p *RemoteParticipant))
 	}
 	r.sidDefers[sid][trackID] = fnc
 }
@@ -392,7 +392,7 @@ func (r *Room) runParticipantDefers(sid livekit.ParticipantID, p *RemoteParticip
 	if len(fncs) != 0 {
 		r.log.Infow("running deferred updates for participant", "participantID", sid, "updates", len(fncs))
 		for _, fnc := range fncs {
-			fnc(p)
+			fnc(r, p)
 		}
 	}
 }
@@ -500,8 +500,8 @@ func (r *Room) handleMediaTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPR
 		// backwards compatibility
 		trackID = streamID
 	}
-	update := func(p *RemoteParticipant) {
-		p.addSubscribedMediaTrack(track, trackID, receiver)
+	update := func(room *Room, p *RemoteParticipant) {
+		p.addSubscribedMediaTrack(room, track, trackID, receiver)
 	}
 
 	rp := r.GetParticipantBySID(participantID)
@@ -515,20 +515,20 @@ func (r *Room) handleMediaTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPR
 		r.deferParticipantUpdate(livekit.ParticipantID(participantID), livekit.TrackID(trackID), update)
 		return
 	}
-	update(rp)
+	update(r, rp)
 	r.runParticipantDefers(livekit.ParticipantID(participantID), rp)
 }
 
 func (r *Room) handleDisconnect(reason DisconnectionReason) {
-	r.callback.OnDisconnected()
-	r.callback.OnDisconnectedWithReason(reason)
+	r.callback.OnDisconnected(r)
+	r.callback.OnDisconnectedWithReason(r, reason)
 
 	r.cleanup()
 }
 
 func (r *Room) handleRestarting() {
 	r.setConnectionState(ConnectionStateReconnecting)
-	r.callback.OnReconnecting()
+	r.callback.OnReconnecting(r)
 
 	for _, rp := range r.GetRemoteParticipants() {
 		r.handleParticipantDisconnect(rp)
@@ -546,17 +546,17 @@ func (r *Room) handleRestarted(joinRes *livekit.JoinResponse) {
 	r.LocalParticipant.republishTracks()
 
 	r.setConnectionState(ConnectionStateConnected)
-	r.callback.OnReconnected()
+	r.callback.OnReconnected(r)
 }
 
 func (r *Room) handleResuming() {
 	r.setConnectionState(ConnectionStateReconnecting)
-	r.callback.OnReconnecting()
+	r.callback.OnReconnecting(r)
 }
 
 func (r *Room) handleResumed() {
 	r.setConnectionState(ConnectionStateConnected)
-	r.callback.OnReconnected()
+	r.callback.OnReconnected(r)
 	r.sendSyncState()
 	r.LocalParticipant.updateSubscriptionPermission()
 }
@@ -580,9 +580,9 @@ func (r *Room) handleDataReceived(identity string, dataPacket DataPacket) {
 		r.callback.OnDataReceived(msg.Payload, params)
 	}
 	if p != nil {
-		p.Callback.OnDataPacket(dataPacket, params)
+		p.Callback.OnDataPacket(r, dataPacket, params)
 	}
-	r.callback.OnDataPacket(dataPacket, params)
+	r.callback.OnDataPacket(r, dataPacket, params)
 }
 
 func (r *Room) handleParticipantUpdate(participants []*livekit.ParticipantInfo) {
@@ -604,7 +604,7 @@ func (r *Room) handleParticipantUpdate(participants []*livekit.ParticipantInfo) 
 			rp = r.addRemoteParticipant(pi, true)
 			r.clearParticipantDefers(livekit.ParticipantID(pi.Sid), pi)
 			r.runParticipantDefers(livekit.ParticipantID(pi.Sid), rp)
-			go r.callback.OnParticipantConnected(rp)
+			go r.callback.OnParticipantConnected(r, rp)
 		} else {
 			oldSid := livekit.ParticipantID(rp.SID())
 			rp.updateInfo(pi)
@@ -630,7 +630,7 @@ func (r *Room) handleParticipantDisconnect(p *RemoteParticipant) {
 	r.lock.Unlock()
 
 	p.unpublishAllTracks()
-	go r.callback.OnParticipantDisconnected(p)
+	go r.callback.OnParticipantDisconnected(r, p)
 }
 
 func (r *Room) handleSpeakersChange(speakerUpdates []*livekit.SpeakerInfo) {
@@ -666,7 +666,7 @@ func (r *Room) handleSpeakersChange(speakerUpdates []*livekit.SpeakerInfo) {
 	r.lock.Lock()
 	r.activeSpeakers = activeSpeakers
 	r.lock.Unlock()
-	go r.callback.OnActiveSpeakersChanged(activeSpeakers)
+	go r.callback.OnActiveSpeakersChanged(r, activeSpeakers)
 }
 
 func (r *Room) handleConnectionQualityUpdate(updates []*livekit.ConnectionQualityInfo) {
@@ -695,7 +695,7 @@ func (r *Room) handleRoomUpdate(room *livekit.Room) {
 	r.lock.Unlock()
 	r.setSid(room.Sid, false)
 	if metadataChanged {
-		go r.callback.OnRoomMetadataChanged(room.Metadata)
+		go r.callback.OnRoomMetadataChanged(r, room.Metadata)
 	}
 }
 

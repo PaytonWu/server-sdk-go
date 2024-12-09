@@ -94,7 +94,7 @@ func (p *RemoteParticipant) updateInfo(pi *livekit.ParticipantInfo) {
 	}
 }
 
-func (p *RemoteParticipant) addSubscribedMediaTrack(track *webrtc.TrackRemote, trackSID string,
+func (p *RemoteParticipant) addSubscribedMediaTrack(room *Room, track *webrtc.TrackRemote, trackSID string,
 	receiver *webrtc.RTPReceiver) {
 	pub := p.getPublication(trackSID)
 	if pub == nil {
@@ -104,7 +104,7 @@ func (p *RemoteParticipant) addSubscribedMediaTrack(track *webrtc.TrackRemote, t
 			for time.Since(start) < 5*time.Second {
 				pub := p.getPublication(trackSID)
 				if pub != nil {
-					p.addSubscribedMediaTrack(track, trackSID, receiver)
+					p.addSubscribedMediaTrack(room, track, trackSID, receiver)
 					return
 				}
 				time.Sleep(50 * time.Millisecond)
@@ -119,8 +119,8 @@ func (p *RemoteParticipant) addSubscribedMediaTrack(track *webrtc.TrackRemote, t
 	p.client.log.Infow("track subscribed",
 		"participant", p.Identity(), "track", pub.sid.Load(),
 		"kind", pub.kind.Load())
-	p.Callback.OnTrackSubscribed(track, pub, p)
-	p.roomCallback.OnTrackSubscribed(track, pub, p)
+	p.Callback.OnTrackSubscribed(room, track, pub, p)
+	p.roomCallback.OnTrackSubscribed(room, track, pub, p)
 }
 
 func (p *RemoteParticipant) getPublication(trackSID string) *RemoteTrackPublication {

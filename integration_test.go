@@ -112,7 +112,7 @@ func TestJoin(t *testing.T) {
 
 	subCB := &RoomCallback{
 		ParticipantCallback: ParticipantCallback{
-			OnDataPacket: func(data DataPacket, params DataReceiveParams) {
+			OnDataPacket: func(room *Room, data DataPacket, params DataReceiveParams) {
 				switch data := data.(type) {
 				case *UserDataPacket:
 					dataLock.Lock()
@@ -120,7 +120,7 @@ func TestJoin(t *testing.T) {
 					dataLock.Unlock()
 				}
 			},
-			OnTrackSubscribed: func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {
+			OnTrackSubscribed: func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {
 				trackLock.Lock()
 				trackReceived.Store(true)
 				require.Equal(t, rp.Name(), pub.LocalParticipant.Name())
@@ -167,7 +167,7 @@ func TestJoinError(t *testing.T) {
 func TestResume(t *testing.T) {
 	var reconnected atomic.Bool
 	pubCB := &RoomCallback{
-		OnReconnected: func() {
+		OnReconnected: func(room *Room) {
 			reconnected.Store(true)
 		},
 	}
@@ -181,7 +181,7 @@ func TestResume(t *testing.T) {
 	var subTrack *webrtc.TrackRemote
 	subCB := &RoomCallback{
 		ParticipantCallback: ParticipantCallback{
-			OnTrackSubscribed: func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {
+			OnTrackSubscribed: func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {
 				trackLock.Lock()
 				trackReceived.Store(true)
 				require.Equal(t, rp.Name(), pub.LocalParticipant.Name())
@@ -191,17 +191,17 @@ func TestResume(t *testing.T) {
 				trackLock.Unlock()
 			},
 		},
-		OnReconnected: func() {
+		OnReconnected: func(room *Room) {
 			subReconnected.Store(true)
 		},
 	}
 	sub, err := createAgent(t.Name(), subCB, "subscriber")
 	require.NoError(t, err)
 
-	subCB.OnReconnecting = func() {
+	subCB.OnReconnecting = func(room *Room) {
 		require.Equal(t, ConnectionStateReconnecting, sub.ConnectionState())
 	}
-	subCB.OnReconnected = func() {
+	subCB.OnReconnected = func(room *Room) {
 		require.Equal(t, ConnectionStateConnected, sub.ConnectionState())
 	}
 
@@ -254,7 +254,7 @@ func TestForceTLS(t *testing.T) {
 	}
 	var reconnected atomic.Bool
 	pubCB := &RoomCallback{
-		OnReconnected: func() {
+		OnReconnected: func(room *Room) {
 			reconnected.Store(true)
 		},
 	}
@@ -350,7 +350,7 @@ func TestSubscribeMutedTrack(t *testing.T) {
 
 	subCB := &RoomCallback{
 		ParticipantCallback: ParticipantCallback{
-			OnTrackSubscribed: func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {
+			OnTrackSubscribed: func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {
 				trackLock.Lock()
 				trackReceived.Inc()
 				require.Equal(t, rp.Name(), pub.LocalParticipant.Name())

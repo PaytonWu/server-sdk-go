@@ -39,13 +39,13 @@ type ParticipantCallback struct {
 	OnConnectionQualityChanged func(update *livekit.ConnectionQualityInfo, p Participant)
 
 	// for remote participants
-	OnTrackSubscribed         func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant)
-	OnTrackUnsubscribed       func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant)
+	OnTrackSubscribed         func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant)
+	OnTrackUnsubscribed       func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant)
 	OnTrackSubscriptionFailed func(sid string, rp *RemoteParticipant)
-	OnTrackPublished          func(publication *RemoteTrackPublication, rp *RemoteParticipant)
-	OnTrackUnpublished        func(publication *RemoteTrackPublication, rp *RemoteParticipant)
+	OnTrackPublished          func(room *Room, publication *RemoteTrackPublication, rp *RemoteParticipant)
+	OnTrackUnpublished        func(room *Room, publication *RemoteTrackPublication, rp *RemoteParticipant)
 	OnDataReceived            func(data []byte, params DataReceiveParams) // Deprecated: Use OnDataPacket instead
-	OnDataPacket              func(data DataPacket, params DataReceiveParams)
+	OnDataPacket              func(room *Room, data DataPacket, params DataReceiveParams)
 	OnTranscriptionReceived   func(transcriptionSegments []*TranscriptionSegment, p Participant, publication TrackPublication)
 }
 
@@ -60,13 +60,13 @@ func NewParticipantCallback() *ParticipantCallback {
 		OnAttributesChanged:        func(changed map[string]string, p Participant) {},
 		OnIsSpeakingChanged:        func(p Participant) {},
 		OnConnectionQualityChanged: func(update *livekit.ConnectionQualityInfo, p Participant) {},
-		OnTrackSubscribed:          func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {},
-		OnTrackUnsubscribed:        func(track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {},
+		OnTrackSubscribed:          func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {},
+		OnTrackUnsubscribed:        func(room *Room, track *webrtc.TrackRemote, publication *RemoteTrackPublication, rp *RemoteParticipant) {},
 		OnTrackSubscriptionFailed:  func(sid string, rp *RemoteParticipant) {},
-		OnTrackPublished:           func(publication *RemoteTrackPublication, rp *RemoteParticipant) {},
-		OnTrackUnpublished:         func(publication *RemoteTrackPublication, rp *RemoteParticipant) {},
+		OnTrackPublished:           func(room *Room, publication *RemoteTrackPublication, rp *RemoteParticipant) {},
+		OnTrackUnpublished:         func(room *Room, publication *RemoteTrackPublication, rp *RemoteParticipant) {},
 		OnDataReceived:             func(data []byte, params DataReceiveParams) {},
-		OnDataPacket:               func(data DataPacket, params DataReceiveParams) {},
+		OnDataPacket:               func(room *Room, data DataPacket, params DataReceiveParams) {},
 		OnTranscriptionReceived:    func(transcriptionSegments []*TranscriptionSegment, p Participant, publication TrackPublication) {},
 	}
 }
@@ -144,14 +144,14 @@ func GetDisconnectionReason(reason livekit.DisconnectReason) DisconnectionReason
 }
 
 type RoomCallback struct {
-	OnDisconnected            func()
-	OnDisconnectedWithReason  func(reason DisconnectionReason)
-	OnParticipantConnected    func(*RemoteParticipant)
-	OnParticipantDisconnected func(*RemoteParticipant)
-	OnActiveSpeakersChanged   func([]Participant)
-	OnRoomMetadataChanged     func(metadata string)
-	OnReconnecting            func()
-	OnReconnected             func()
+	OnDisconnected            func(*Room)
+	OnDisconnectedWithReason  func(room *Room, reason DisconnectionReason)
+	OnParticipantConnected    func(*Room, *RemoteParticipant)
+	OnParticipantDisconnected func(*Room, *RemoteParticipant)
+	OnActiveSpeakersChanged   func(*Room, []Participant)
+	OnRoomMetadataChanged     func(room *Room, metadata string)
+	OnReconnecting            func(*Room)
+	OnReconnected             func(*Room)
 
 	// participant events are sent to the room as well
 	ParticipantCallback
@@ -162,14 +162,14 @@ func NewRoomCallback() *RoomCallback {
 	return &RoomCallback{
 		ParticipantCallback: *pc,
 
-		OnDisconnected:            func() {},
-		OnDisconnectedWithReason:  func(reason DisconnectionReason) {},
-		OnParticipantConnected:    func(participant *RemoteParticipant) {},
-		OnParticipantDisconnected: func(participant *RemoteParticipant) {},
-		OnActiveSpeakersChanged:   func(participants []Participant) {},
-		OnRoomMetadataChanged:     func(metadata string) {},
-		OnReconnecting:            func() {},
-		OnReconnected:             func() {},
+		OnDisconnected:            func(room *Room) {},
+		OnDisconnectedWithReason:  func(room *Room, reason DisconnectionReason) {},
+		OnParticipantConnected:    func(room *Room, participant *RemoteParticipant) {},
+		OnParticipantDisconnected: func(room *Room, participant *RemoteParticipant) {},
+		OnActiveSpeakersChanged:   func(room *Room, participants []Participant) {},
+		OnRoomMetadataChanged:     func(room *Room, metadata string) {},
+		OnReconnecting:            func(room *Room) {},
+		OnReconnected:             func(room *Room) {},
 	}
 }
 

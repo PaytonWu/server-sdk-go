@@ -45,7 +45,7 @@ func main() {
 
 	room := lksdk.NewRoom(&lksdk.RoomCallback{
 		ParticipantCallback: lksdk.ParticipantCallback{
-			OnTrackSubscribed: func(track *webrtc.TrackRemote, publication *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
+			OnTrackSubscribed: func(room *lksdk.Room, track *webrtc.TrackRemote, publication *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
 				// Only provide echo for the first participant
 				if !firstParticipantSubscribed && track.Kind() == webrtc.RTPCodecTypeAudio {
 					firstParticipantSubscribed = true

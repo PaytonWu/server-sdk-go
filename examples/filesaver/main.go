@@ -76,7 +76,7 @@ func main() {
 	room.Disconnect()
 }
 
-func onTrackSubscribed(track *webrtc.TrackRemote, publication *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
+func onTrackSubscribed(room *lksdk.Room, track *webrtc.TrackRemote, publication *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
 	fileName := fmt.Sprintf("%s-%s", rp.Identity(), track.ID())
 	fmt.Println("write track to file ", fileName)
 	NewTrackWriter(track, rp.WritePLI, fileName)
