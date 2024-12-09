@@ -629,7 +629,7 @@ func (r *Room) handleParticipantDisconnect(p *RemoteParticipant) {
 	delete(r.sidDefers, livekit.ParticipantID(p.SID()))
 	r.lock.Unlock()
 
-	p.unpublishAllTracks()
+	p.unpublishAllTracks(r)
 	go r.callback.OnParticipantDisconnected(r, p)
 }
 

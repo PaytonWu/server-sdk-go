@@ -90,7 +90,7 @@ func (p *RemoteParticipant) updateInfo(room *Room, pi *livekit.ParticipantInfo) 
 		return true
 	})
 	for _, sid := range toUnpublish {
-		p.unpublishTrack(sid, true)
+		p.unpublishTrack(room, sid, true)
 	}
 }
 
@@ -130,7 +130,7 @@ func (p *RemoteParticipant) getPublication(trackSID string) *RemoteTrackPublicat
 	return nil
 }
 
-func (p *RemoteParticipant) unpublishTrack(sid string, sendUnpublish bool) {
+func (p *RemoteParticipant) unpublishTrack(room *Room, sid string, sendUnpublish bool) {
 	pub := p.getPublication(sid)
 	if pub == nil {
 		p.client.log.Warnw("could not find track to unpublish", nil, "sid", sid)
@@ -147,12 +147,12 @@ func (p *RemoteParticipant) unpublishTrack(sid string, sendUnpublish bool) {
 
 	track := pub.TrackRemote()
 	if track != nil {
-		p.Callback.OnTrackUnsubscribed(track, pub, p)
-		p.roomCallback.OnTrackUnsubscribed(track, pub, p)
+		p.Callback.OnTrackUnsubscribed(room, track, pub, p)
+		p.roomCallback.OnTrackUnsubscribed(room, track, pub, p)
 	}
 	if sendUnpublish {
-		p.Callback.OnTrackUnpublished(pub, p)
-		p.roomCallback.OnTrackUnpublished(pub, p)
+		p.Callback.OnTrackUnpublished(room, pub, p)
+		p.roomCallback.OnTrackUnpublished(room, pub, p)
 	}
 }
 
@@ -160,13 +160,13 @@ func (p *RemoteParticipant) WritePLI(ssrc webrtc.SSRC) {
 	p.pliWriter(ssrc)
 }
 
-func (p *RemoteParticipant) unpublishAllTracks() {
+func (p *RemoteParticipant) unpublishAllTracks(room *Room) {
 	p.tracks.Range(func(_, value interface{}) bool {
 		pub := value.(TrackPublication)
 		if remoteTrack, ok := pub.Track().(*webrtc.TrackRemote); ok {
 			if pub.Track() != nil {
-				p.Callback.OnTrackUnsubscribed(remoteTrack, pub.(*RemoteTrackPublication), p)
-				p.roomCallback.OnTrackUnsubscribed(remoteTrack, pub.(*RemoteTrackPublication), p)
+				p.Callback.OnTrackUnsubscribed(room, remoteTrack, pub.(*RemoteTrackPublication), p)
+				p.roomCallback.OnTrackUnsubscribed(room, remoteTrack, pub.(*RemoteTrackPublication), p)
 			}
 		}
 		return true
